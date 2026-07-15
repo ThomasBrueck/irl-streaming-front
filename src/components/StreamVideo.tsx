@@ -8,11 +8,13 @@ interface StreamVideoProps {
   isOwner: boolean;
   userId: string;
   username: string;
+  viewerId: string;
+  cameraId: string;
   onToggleStatus: () => void;
 }
 
-export default function StreamVideo({ stream, isOwner, userId, username, onToggleStatus }: StreamVideoProps) {
-  const [useLiveKit, setUseLiveKit] = useState(false);
+export default function StreamVideo({ stream, isOwner, userId: _userId, username: _username, viewerId, cameraId, onToggleStatus }: StreamVideoProps) {
+  const [useLiveKit, setUseLiveKit] = useState(isOwner && stream.status === "LIVE");
 
   const isLive = stream.status === "LIVE";
   const roomName = `stream_${stream.id}`;
@@ -34,12 +36,12 @@ export default function StreamVideo({ stream, isOwner, userId, username, onToggl
         {isOwner && useLiveKit ? (
           <LiveKitCamera
             roomName={roomName}
-            identity={username || userId}
+            identity={cameraId}
           />
         ) : !isOwner && isLive ? (
           <LiveKitPlayer
             roomName={roomName}
-            identity={`viewer_${userId}`}
+            identity={viewerId}
           />
         ) : isLive ? (
           /* owner stopped camera but stream is marked live */

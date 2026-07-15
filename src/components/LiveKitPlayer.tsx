@@ -28,12 +28,6 @@ export default function LiveKitPlayer({ roomName, identity }: LiveKitPlayerProps
         room.on("participantConnected", (p: RemoteParticipant) => {
           if (cancelled) return;
           setBroadcasterName(p.identity || "Broadcaster");
-
-          p.trackPublications.forEach((pub) => {
-            if (pub.kind === "video" && pub.track && videoRef.current) {
-              pub.track.attach(videoRef.current);
-            }
-          });
         });
 
         room.on("trackSubscribed", (track) => {
@@ -45,6 +39,17 @@ export default function LiveKitPlayer({ roomName, identity }: LiveKitPlayerProps
 
         await room.connect(getLiveKitUrl(), token);
         roomRef.current = room;
+
+        // attach any existing video tracks from participants already in the room
+        for (const p of room.remoteParticipants.values()) {
+          setBroadcasterName(p.identity || "Broadcaster");
+          for (const pub of p.trackPublications.values()) {
+            if (pub.kind === "video" && pub.track && videoRef.current) {
+              pub.track.attach(videoRef.current);
+            }
+          }
+        }
+
         if (!cancelled) setConnected(true);
       } catch (err: any) {
         if (!cancelled) setError(err.message || "Failed to connect");
@@ -67,20 +72,6 @@ export default function LiveKitPlayer({ roomName, identity }: LiveKitPlayerProps
     );
   }
 
-  if (!connected) {
-    return (
-      <div className="absolute inset-0 bg-gradient-to-br from-blue-600/5 via-zinc-950 to-purple-600/5 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 mx-auto rounded-full bg-green-500/20 flex items-center justify-center mb-3">
-            <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse" />
-          </div>
-          <p className="text-zinc-400 text-sm">Stream is live</p>
-          <p className="text-zinc-600 text-xs mt-1">Connecting...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <>
       <video
@@ -89,6 +80,17 @@ export default function LiveKitPlayer({ roomName, identity }: LiveKitPlayerProps
         playsInline
         className="w-full h-full object-cover"
       />
+      {!connected && (
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-600/5 via-zinc-950 to-purple-600/5 flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-16 h-16 mx-auto rounded-full bg-green-500/20 flex items-center justify-center mb-3">
+              <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse" />
+            </div>
+            <p className="text-zinc-400 text-sm">Stream is live</p>
+            <p className="text-zinc-600 text-xs mt-1">Connecting...</p>
+          </div>
+        </div>
+      )}
       {broadcasterName && (
         <div className="absolute bottom-3 left-3 bg-zinc-900/80 text-zinc-200 text-xs px-2.5 py-1 rounded-md">
           {broadcasterName}

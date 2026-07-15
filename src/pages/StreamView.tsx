@@ -22,7 +22,12 @@ export default function StreamView() {
     ? (() => { try { return JSON.parse(atob(token.split(".")[1])).username as string; } catch { return ""; } })()
     : "";
 
-  const isOwner = stream ? String(stream.userId) === userId : false;
+  const viewerId = userId ? `viewer_${userId}_${Math.random().toString(36).slice(2, 8)}` : `anon_${Math.random().toString(36).slice(2, 8)}`;
+  const cameraId = username 
+    ? `${username}_${Math.random().toString(36).slice(2, 8)}`
+    : `${userId}_${Math.random().toString(36).slice(2, 8)}`;
+
+  const isOwner = stream ? String(stream.userID) === userId : false;
 
   useEffect(() => {
     if (!id) return;
@@ -88,6 +93,8 @@ export default function StreamView() {
               isOwner={isOwner}
               userId={userId || "0"}
               username={username || "anonymous"}
+              viewerId={viewerId}
+              cameraId={cameraId}
               onToggleStatus={toggleStatus}
             />
           </div>

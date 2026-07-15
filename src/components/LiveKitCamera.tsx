@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Room } from "livekit-client";
+import { Room, Track } from "livekit-client";
 import { getLiveKitUrl, createLiveKitToken } from "../lib/livekit";
 
 interface LiveKitCameraProps {
@@ -24,13 +24,18 @@ export default function LiveKitCamera({ roomName, identity }: LiveKitCameraProps
           dynacast: true,
         });
 
-        await room.connect(getLiveKitUrl(), token);
-        await room.localParticipant.enableCameraAndMicrophone();
+        room.on("localTrackPublished", (pub) => {
+          if (pub.kind === Track.Kind.Video && videoRef.current && pub.track) {
+            pub.track.attach(videoRef.current);
+          }
+        });
 
-        const pub = room.localParticipant.videoTrackPublications.values().next().value;
+        await room.connect(getLiveKitUrl(), token);
+        const pub = await room.localParticipant.setCameraEnabled(true);
         if (pub?.track && videoRef.current) {
           pub.track.attach(videoRef.current);
         }
+        await room.localParticipant.setMicrophoneEnabled(true);
 
         roomRef.current = room;
         if (!cancelled) setConnected(true);

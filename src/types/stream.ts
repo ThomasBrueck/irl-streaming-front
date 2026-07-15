@@ -1,6 +1,6 @@
 export interface StreamResponse {
   id: number;
-  userId: number;
+  userID: number;
   title: string;
   description: string | null;
   category: string | null;
