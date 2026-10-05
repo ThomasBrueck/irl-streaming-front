@@ -1,201 +1,269 @@
-import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
-import { getStreams, createStream, updateStreamStatus } from "../api/streams";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useAuth } from "../hooks/useAuth";
+import { useToast } from "../hooks/useToast";
+import { getStreams, getMyStream, createStream, updateStream, updateStreamStatus } from "../api/streams";
 import type { StreamResponse } from "../types/stream";
+import { CATEGORIES, categoryMeta, type StreamCategory } from "../lib/categories";
+import { matchesSearch } from "../lib/dashboard";
+import DashboardHeader from "../components/dashboard/DashboardHeader";
+import StreamResults from "../components/dashboard/StreamResults";
+import ChannelPanel, { type ChannelValues } from "../components/dashboard/ChannelPanel";
+import Icon from "../components/ui/Icon";
+
+const REFRESH_MS = 15000;
 
 export default function Dashboard() {
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
+  const { show } = useToast();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const userId = user?.id;
+  const username = user?.username || "you";
+
   const [streams, setStreams] = useState<StreamResponse[]>([]);
+  const [myStream, setMyStream] = useState<StreamResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [showCreate, setShowCreate] = useState(false);
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [creating, setCreating] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [search, setSearch] = useState(searchParams.get("q") || "");
+  const [category, setCategory] = useState<StreamCategory | "ALL">("ALL");
+  const [active, setActive] = useState(0);
 
   useEffect(() => {
-    getStreams()
-      .then(setStreams)
-      .catch(() => setError("Failed to load streams"))
+    Promise.all([getStreams(), userId ? getMyStream(userId) : Promise.resolve(null)])
+      .then(([all, mine]) => {
+        setStreams(all);
+        setMyStream(mine);
+      })
+      .catch(() => show("Couldn't load streams.", "error"))
       .finally(() => setLoading(false));
+  }, [userId, show]);
+
+  // Keep the list fresh while the page is open: new streams and viewer counts.
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      getStreams()
+        .then(setStreams)
+        .catch(() => undefined);
+    }, REFRESH_MS);
+    return () => window.clearInterval(id);
   }, []);
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setCreating(true);
+  // Your own channel, as the server last reported it (the list refreshes it).
+  const channel = useMemo(() => streams.find((s) => s.id === myStream?.id) ?? myStream, [streams, myStream]);
+  const onAir = channel?.status === "LIVE";
+
+  const matching = useMemo(
+    () => streams.filter((s) => (category === "ALL" || s.category === category) && matchesSearch(s, search)),
+    [streams, category, search]
+  );
+  const live = useMemo(() => matching.filter((s) => s.status === "LIVE").sort((a, b) => b.viewerCount - a.viewerCount), [matching]);
+  const offline = useMemo(() => matching.filter((s) => s.status !== "LIVE"), [matching]);
+  const liveAll = useMemo(() => streams.filter((s) => s.status === "LIVE"), [streams]);
+  const activeIndex = Math.min(active, Math.max(0, live.length - 1));
+  const hasFilters = category !== "ALL" || search.trim() !== "";
+
+  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActive(Math.min(activeIndex + 1, live.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActive(Math.max(activeIndex - 1, 0));
+    } else if (e.key === "Enter" && live[activeIndex]) {
+      e.preventDefault();
+      navigate(`/stream/${live[activeIndex].id}`);
+    } else if (e.key === "Escape") {
+      setSearch("");
+    }
+  };
+
+  const createChannel = async (v: ChannelValues) => {
+    setBusy(true);
     try {
-      const stream = await createStream({ title, description: description || undefined });
+      const stream = await createStream({ title: v.title, description: v.description || undefined, category: v.category });
+      setMyStream(stream);
       setStreams((prev) => [stream, ...prev]);
-      setShowCreate(false);
-      setTitle("");
-      setDescription("");
+      show("Your channel is ready!", "success");
+      navigate(`/stream/${stream.id}`);
     } catch {
-      setError("Failed to create stream");
+      show("Couldn't create your channel.", "error");
     } finally {
-      setCreating(false);
+      setBusy(false);
     }
   };
 
-  const toggleStatus = async (stream: StreamResponse) => {
+  const goLive = async (v: ChannelValues) => {
+    if (!channel) return;
+    setBusy(true);
     try {
-      const newStatus = stream.status === "LIVE" ? "OFFLINE" : "LIVE";
-      const updated = await updateStreamStatus(stream.id, newStatus);
+      let current = channel;
+      if (v.title !== channel.title || v.category !== channel.category) {
+        current = await updateStream(channel.id, { title: v.title, description: channel.description ?? undefined, category: v.category });
+      }
+      const updated = await updateStreamStatus(current.id, "LIVE");
+      setMyStream(updated);
       setStreams((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+      show("You're live!", "success");
+      navigate(`/stream/${updated.id}`);
     } catch {
-      setError("Failed to update stream status");
+      show("Couldn't update your channel.", "error");
+    } finally {
+      setBusy(false);
     }
   };
 
-  const handleLogout = () => {
-    logout();
-    navigate("/");
+  const endStream = async () => {
+    if (!channel) return;
+    setBusy(true);
+    try {
+      const updated = await updateStreamStatus(channel.id, "OFFLINE");
+      setMyStream(updated);
+      setStreams((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+      show("Stream ended.", "success");
+    } catch {
+      show("Couldn't update your channel.", "error");
+    } finally {
+      setBusy(false);
+    }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <p className="text-zinc-400">Loading...</p>
-      </div>
-    );
-  }
+  const clearFilters = () => {
+    setSearch("");
+    setCategory("ALL");
+  };
+
+  const chips: { value: StreamCategory | "ALL"; label: string; color: string; count: number }[] = [
+    { value: "ALL", label: "All", color: "#ffffff", count: liveAll.length },
+    ...CATEGORIES.map((c) => ({ value: c.value, label: c.label, color: c.color, count: liveAll.filter((s) => s.category === c.value).length })),
+  ];
 
   return (
-    <div className="min-h-screen bg-zinc-950">
-      <nav className="border-b border-zinc-800">
-        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-white">IRL Streaming</h1>
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => setShowCreate(true)}
-              className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
-            >
-              Start Stream
-            </button>
-            <button
-              onClick={handleLogout}
-              className="px-4 py-2 rounded-lg bg-zinc-800 text-zinc-300 text-sm font-medium hover:bg-zinc-700 transition-colors"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </nav>
+    <div className="landing min-h-screen overflow-x-clip">
+      <DashboardHeader username={username} onLogout={logout} onAir={onAir} />
 
-      <main className="max-w-6xl mx-auto px-4 py-8">
-        {error && (
-          <div className="mb-6 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
-            {error}
-            <button onClick={() => setError("")} className="ml-2 underline">Dismiss</button>
-          </div>
-        )}
+      <div className="mx-auto flex max-w-[1440px] flex-wrap items-start gap-12 px-[clamp(20px,3vw,48px)] pb-[90px] pt-6">
+        <main className="min-w-0 flex-[1_1_640px]">
+          <h1 className="axis auth-rise mb-7 text-[clamp(64px,9vw,136px)] uppercase">Where to?</h1>
 
-        {showCreate && (
-          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-            <form onSubmit={handleCreate} className="bg-zinc-900 rounded-xl p-6 w-full max-w-md mx-4 border border-zinc-800">
-              <h2 className="text-lg font-semibold text-white mb-4">Create a stream</h2>
-              <div className="space-y-4">
-                <div>
-                  <label htmlFor="title" className="block text-sm font-medium text-zinc-300 mb-1">
-                    Title
-                  </label>
-                  <input
-                    id="title"
-                    required
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="My awesome stream"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="description" className="block text-sm font-medium text-zinc-300 mb-1">
-                    Description <span className="text-zinc-500">(optional)</span>
-                  </label>
-                  <textarea
-                    id="description"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    rows={3}
-                    className="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                    placeholder="What's this stream about?"
-                  />
-                </div>
+          <div className="auth-rise relative [animation-delay:.1s]">
+            <label htmlFor="stream-search" className="sr-only">
+              Search streams by title or category
+            </label>
+            <Icon name="search" size={26} strokeWidth={2} className="pointer-events-none absolute left-[22px] top-[25px] text-ink" />
+            <input
+              id="stream-search"
+              type="search"
+              role="combobox"
+              aria-expanded={live.length > 0}
+              aria-controls="stream-results"
+              aria-autocomplete="list"
+              aria-activedescendant={live[activeIndex] ? `stream-option-${live[activeIndex].id}` : undefined}
+              autoComplete="off"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setActive(0);
+              }}
+              onKeyDown={onKeyDown}
+              placeholder="Search by title or category"
+              className="block min-h-[76px] w-full rounded-3xl bg-white pl-[58px] pr-5 text-lg font-medium sm:pl-[62px] sm:pr-6 sm:text-2xl shadow-[inset_0_0_0_2px_#0c0a14,0_20px_40px_-26px_rgba(12,10,20,.5)] transition-shadow duration-200 placeholder:font-normal placeholder:text-ink-faint focus:outline-none focus:shadow-[inset_0_0_0_3px_#5b2fe0,0_0_0_5px_rgba(91,47,224,.2),0_20px_40px_-26px_rgba(12,10,20,.5)]"
+            />
+          </div>
+
+          <div role="group" aria-label="Categories" className="auth-rise mb-[22px] mt-[18px] flex flex-wrap gap-2 [animation-delay:.16s]">
+            {chips.map((c) => (
+              <button
+                key={c.value}
+                type="button"
+                aria-pressed={category === c.value}
+                onClick={() => {
+                  setCategory(c.value);
+                  setActive(0);
+                }}
+                className={`inline-flex min-h-11 items-center gap-2 rounded-full px-4 text-[15px] font-bold shadow-[inset_0_0_0_2px_#0c0a14] transition-[scale,background-color,color] duration-200 active:scale-[.96] ${
+                  category === c.value ? "bg-ink text-paper" : "hover:bg-white"
+                }`}
+              >
+                <i className="size-[11px] rounded-full shadow-[inset_0_0_0_2px_#0c0a14]" style={{ background: c.color }} />
+                {c.label} <span className="font-medium opacity-70">{c.count}</span>
+              </button>
+            ))}
+          </div>
+
+          <p aria-live="polite" className="mb-3 min-h-[26px] text-[15px] font-medium text-ink-soft">
+            {loading ? "" : `${live.length} ${live.length === 1 ? "stream is" : "streams are"} live here.`}
+          </p>
+
+          {loading ? (
+            <div aria-busy="true" aria-label="Loading streams">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="mb-1.5 h-[72px] animate-shimmer rounded-[18px] bg-[linear-gradient(90deg,#e6e7f1_0,#f6f7fb_50%,#e6e7f1_100%)] bg-[length:200%_100%]" />
+              ))}
+            </div>
+          ) : live.length === 0 ? (
+            <div className="px-1 py-8">
+              <div className="axis text-[clamp(32px,4vw,52px)] uppercase">
+                {streams.length === 0 ? "Nobody is live yet." : hasFilters ? "Nothing matches that." : "Nobody is live right now."}
               </div>
-              <div className="flex justify-end gap-3 mt-6">
+              <p className="mb-[22px] mt-3.5 max-w-[480px] text-[19px] text-ink-soft">
+                {hasFilters
+                  ? "Try another word or category, or clear the search."
+                  : "Streams show up here the moment someone goes live. Be the first."}
+              </p>
+              {hasFilters && (
                 <button
                   type="button"
-                  onClick={() => setShowCreate(false)}
-                  className="px-4 py-2 rounded-lg bg-zinc-800 text-zinc-300 text-sm font-medium hover:bg-zinc-700 transition-colors"
+                  onClick={clearFilters}
+                  className="inline-flex min-h-[52px] items-center justify-center rounded-full border-2 border-ink bg-ink px-[26px] text-[17px] font-bold text-paper transition-[scale,background-color] duration-200 hover:bg-[#2a2540] active:scale-[.96]"
                 >
-                  Cancel
+                  Clear search
                 </button>
-                <button
-                  type="submit"
-                  disabled={creating}
-                  className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
-                >
-                  {creating ? "Creating..." : "Go live"}
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {streams.length === 0 ? (
-            <div className="col-span-full text-center py-20">
-              <p className="text-zinc-500 text-lg">No streams yet</p>
-              <p className="text-zinc-600 mt-1">Click "Start Stream" to go live</p>
+              )}
             </div>
           ) : (
-            streams.map((stream) => (
-              <Link
-                key={stream.id}
-                to={`/stream/${stream.id}`}
-                className="block rounded-xl bg-zinc-900 border border-zinc-800 overflow-hidden hover:border-zinc-700 transition-colors"
-              >
-                <div className="aspect-video bg-zinc-800 flex items-center justify-center">
-                  {stream.status === "LIVE" ? (
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                      <span className="text-red-400 text-sm font-medium">LIVE</span>
-                    </div>
-                  ) : (
-                    <span className="text-zinc-600 text-sm">Offline</span>
-                  )}
-                </div>
-                <div className="p-4">
-                  <h3 className="text-white font-semibold truncate">{stream.title}</h3>
-                  {stream.description && (
-                    <p className="text-zinc-400 text-sm mt-1 line-clamp-2">{stream.description}</p>
-                  )}
-                  <div className="flex items-center justify-between mt-3">
-                    <span className="text-xs text-zinc-500">
-                      {stream.viewerCount} viewer{stream.viewerCount !== 1 ? "s" : ""}
-                    </span>
-                    <span
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        toggleStatus(stream);
-                      }}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-                        stream.status === "LIVE"
-                          ? "bg-red-600/20 text-red-400 hover:bg-red-600/30"
-                          : "bg-green-600/20 text-green-400 hover:bg-green-600/30"
-                      }`}
-                    >
-                      {stream.status === "LIVE" ? "Stop" : "Start"}
-                    </span>
-                  </div>
-                </div>
-              </Link>
-            ))
+            <StreamResults streams={live} activeIndex={activeIndex} onActivate={setActive} myStreamId={channel?.id} />
           )}
-        </div>
-      </main>
+
+          {!loading && offline.length > 0 && (
+            <div className="mt-[22px] px-[18px] text-[15px] text-ink-soft">
+              <p className="m-0 mb-1.5">Offline right now:</p>
+              <ul className="m-0 flex list-none flex-wrap gap-x-4 gap-y-1 p-0">
+                {offline.slice(0, 8).map((s) => (
+                  <li key={s.id}>
+                    <Link to={`/stream/${s.id}`} className="underline decoration-1 underline-offset-4 hover:text-ink">
+                      {s.title}
+                    </Link>
+                    <span className="text-ink-faint"> ({categoryMeta(s.category).label})</span>
+                  </li>
+                ))}
+                {offline.length > 8 && <li>and {offline.length - 8} more</li>}
+              </ul>
+            </div>
+          )}
+
+          {live.length > 0 && (
+            <p className="mt-[26px] hidden px-[18px] text-[15px] text-ink-soft sm:block">
+              <kbd className="rounded-lg border-2 border-b-4 border-ink bg-white px-2 text-[13px] font-bold">Up</kbd>{" "}
+              <kbd className="rounded-lg border-2 border-b-4 border-ink bg-white px-2 text-[13px] font-bold">Down</kbd> to move,{" "}
+              <kbd className="rounded-lg border-2 border-b-4 border-ink bg-white px-2 text-[13px] font-bold">Enter</kbd> to watch.
+            </p>
+          )}
+        </main>
+
+        <aside className="min-w-[min(100%,320px)] flex-[0_1_400px] lg:sticky lg:top-6">
+          {!loading && (
+            <ChannelPanel
+              key={channel ? `${channel.id}-${channel.status}` : "new"}
+              channel={channel}
+              busy={busy}
+              onCreate={createChannel}
+              onGoLive={goLive}
+              onEnd={endStream}
+            />
+          )}
+        </aside>
+      </div>
     </div>
   );
 }
