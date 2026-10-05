@@ -1,45 +1,56 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
-import api from "../lib/axios";
-import type { LoginRequest, RegisterRequest, AuthResponse } from "../types/auth";
+import { useState, useCallback, type ReactNode } from "react";
+import { login as apiLogin, register as apiRegister } from "../api/auth";
+import { decodeToken, isTokenExpired } from "../lib/jwt";
+import type { LoginRequest, RegisterRequest } from "../types/auth";
+import { AuthContext, type AuthUser } from "./auth-context";
 
-interface AuthContextType {
-  token: string | null;
-  user: { id: number; username: string; email: string; role: string } | null;
-  login: (data: LoginRequest) => Promise<void>;
-  register: (data: RegisterRequest) => Promise<void>;
-  logout: () => void;
-  loading: boolean;
+function userFromToken(token: string | null): AuthUser | null {
+  if (!token || isTokenExpired(token)) return null;
+  const payload = decodeToken(token);
+  if (!payload) return null;
+  return { id: payload.sub, username: payload.username, role: payload.role };
 }
 
-const AuthContext = createContext<AuthContextType | null>(null);
+function readStoredToken(): string | null {
+  const stored = localStorage.getItem("token");
+  if (!stored) return null;
+  if (isTokenExpired(stored)) {
+    localStorage.removeItem("token");
+    return null;
+  }
+  return stored;
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [token, setToken] = useState<string | null>(
-    () => localStorage.getItem("token")
-  );
-  const [user, setUser] = useState<AuthContextType["user"] | null>(null);
+  const [token, setToken] = useState<string | null>(readStoredToken);
+  const [user, setUser] = useState<AuthUser | null>(() => userFromToken(readStoredToken()));
   const [loading, setLoading] = useState(false);
 
-  const login = useCallback(async (data: LoginRequest) => {
-    setLoading(true);
-    try {
-      const res = await api.post<AuthResponse>("/api/auth/login", data);
-      const t = res.data.token!;
-      localStorage.setItem("token", t);
-      setToken(t);
-    } finally {
-      setLoading(false);
-    }
+  const applyToken = useCallback((t: string) => {
+    localStorage.setItem("token", t);
+    setToken(t);
+    setUser(userFromToken(t));
   }, []);
+
+  const login = useCallback(
+    async (data: LoginRequest) => {
+      setLoading(true);
+      try {
+        const token = await apiLogin(data);
+        applyToken(token);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [applyToken]
+  );
 
   const register = useCallback(async (data: RegisterRequest) => {
     setLoading(true);
     try {
-      const res = await api.post<AuthResponse>("/api/auth/register", data);
-      if (res.data.token) {
-        localStorage.setItem("token", res.data.token);
-        setToken(res.data.token);
-      }
+      // The register endpoint never returns a session token — the account is
+      // created and the user signs in explicitly right after (see Register.tsx).
+      await apiRegister(data);
     } finally {
       setLoading(false);
     }
@@ -52,14 +63,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ token, user, login, register, logout, loading }}>
-      {children}
-    </AuthContext.Provider>
+    <AuthContext.Provider value={{ token, user, login, register, logout, loading }}>{children}</AuthContext.Provider>
   );
-}
-
-export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be inside <AuthProvider>");
-  return ctx;
 }
