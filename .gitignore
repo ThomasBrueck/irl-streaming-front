@@ -22,3 +22,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+
+# Documentation and notes that are not part of the project (everything except the README)
+*.md
+!README.md
+claude/
+.claude/
+.impeccable/
