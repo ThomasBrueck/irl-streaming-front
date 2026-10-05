@@ -1,1 +1,373 @@
+@import url("https://fonts.googleapis.com/css2?family=Anybody:wdth,wght@50..150,100..900&family=Figtree:wght@400;500;700&display=swap");
 @import "tailwindcss";
+
+/* One identity for the whole app, "Say it live": cool paper, ink, a red tally
+   and a violet signal. Anybody is the loud display face, Figtree the body. */
+@theme {
+  --font-axis: "Anybody", "Arial Narrow", sans-serif;
+  --font-body: "Figtree", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Figtree", ui-sans-serif, system-ui, sans-serif;
+
+  --color-paper: #f2f3f8;
+  --color-ink: #0c0a14;
+  --color-ink-soft: #4b4a5c;
+  --color-ink-faint: #6b6a80;
+  --color-ink-line: #d9dae6;
+  --color-tally: #e8334a;
+  --color-tally-text: #c81e3a;
+  --color-signal: #5b2fe0;
+
+  /* Stream categories (lib/categories.ts). */
+  --color-cat-chat: #f472b6;
+  --color-cat-gaming: #34d399;
+  --color-cat-software: #38bdf8;
+  --color-cat-sports: #fbbf24;
+  --color-cat-other: #94a3b8;
+
+  --animate-shimmer: shimmer 1.6s linear infinite;
+}
+
+@keyframes shimmer {
+  from { background-position: -200% 0; }
+  to { background-position: 200% 0; }
+}
+
+/* ── base ─────────────────────────────────────────────────────────────── */
+
+:root { color-scheme: light; }
+
+body {
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+}
+
+::selection { background: var(--color-tally); color: #fff; }
+
+*:focus-visible {
+  outline: 3px solid var(--color-signal);
+  outline-offset: 3px;
+}
+
+* { scrollbar-color: var(--color-ink-line) transparent; scrollbar-width: thin; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* ── landing page ("Say it live") ─────────────────────────────────────────
+   Everything below is scoped under `.landing` (the shared page wrapper for
+   every screen of the app). Anybody is a variable font with width (wdth) and
+   weight (wght) axes; the page's whole motion idea is that type gets
+   louder (wider and heavier) the way a voice does. */
+@layer components {
+  .landing {
+    color-scheme: light;
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-body);
+    line-height: 1.55;
+  }
+  .landing ::selection { background: var(--color-tally); color: #fff; }
+  .landing *:focus-visible { outline: 3px solid var(--color-signal); outline-offset: 3px; border-radius: 6px; }
+
+  .axis {
+    font-family: var(--font-axis);
+    font-variation-settings: "wdth" 100, "wght" 800;
+    letter-spacing: -0.02em;
+    line-height: 0.9;
+  }
+
+  /* Big verbs widen and thicken on hover, focus or when open. */
+  .landing-verb-word {
+    font-variation-settings: "wdth" 60, "wght" 700;
+    transition-property: font-variation-settings, color;
+    transition-duration: 0.8s, 0.3s;
+    transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .landing-verb:hover .landing-verb-word,
+  .landing-verb:focus-visible .landing-verb-word,
+  .landing-verb[aria-expanded="true"] .landing-verb-word {
+    font-variation-settings: "wdth" 150, "wght" 900;
+  }
+  .landing-verb:hover .landing-verb-word { color: var(--color-signal); }
+
+  /* A phrase fills with ink from left to right as --f goes 0 to 100. */
+  .landing-fill {
+    --f: 0;
+    color: transparent;
+    /* Ink over a pale base. (A text-stroke outline looked cleaner on paper,
+       but variable fonts carry overlapping contours that a stroke draws
+       through the letters, so the unfilled state is a pale solid instead.) */
+    background-image:
+      linear-gradient(var(--color-ink), var(--color-ink)),
+      linear-gradient(#cfd0de, #cfd0de);
+    background-repeat: no-repeat;
+    background-size: calc(var(--f) * 1%) 100%, 100% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    font-variation-settings: "wdth" 110, "wght" 800;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .landing-fill { --f: 100; }
+  }
+
+  /* The channel dial: a real range input whose thumb is the needle. */
+  .dial-range {
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    cursor: ew-resize;
+  }
+  .dial-range::-webkit-slider-runnable-track { height: 210px; background: transparent; }
+  .dial-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 5px;
+    height: 210px;
+    border-radius: 3px;
+    background: var(--color-tally);
+    box-shadow: 0 8px 16px rgba(232, 51, 74, 0.45);
+  }
+  .dial-range::-moz-range-track { height: 210px; background: transparent; }
+  .dial-range::-moz-range-thumb {
+    width: 5px;
+    height: 210px;
+    border: 0;
+    border-radius: 3px;
+    background: var(--color-tally);
+    box-shadow: 0 8px 16px rgba(232, 51, 74, 0.45);
+  }
+  .dial-tick { transform-box: fill-box; transform-origin: 50% 100%; }
+  .dial-name {
+    transition-property: font-variation-settings, color;
+    transition-duration: 0.6s, 0.3s;
+    transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @keyframes landing-blink { to { visibility: hidden; } }
+}
+
+@layer components {
+  .dial-label {
+    font-family: var(--font-axis);
+    font-variation-settings: "wdth" 100, "wght" 650;
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    transition-property: color;
+    transition-duration: 0.3s;
+  }
+}
+
+/* ── auth pages (login, sign up): "Say it" sentence form + the live pass ─────
+   Shares the landing's light palette via the `.landing` wrapper. The pass is
+   a pendulum driven by hooks/usePendulum.ts, which only touches the `.pass-hang`
+   element's transform. */
+@layer components {
+  .auth-blank {
+    field-sizing: content;
+    min-width: 7ch;
+    max-width: 100%;
+    padding: 0 6px 2px;
+    border: 0;
+    border-bottom: 3px solid var(--color-ink);
+    border-radius: 0;
+    background: transparent;
+    font: inherit;
+    letter-spacing: inherit;
+    color: var(--color-signal);
+    transition-property: border-color, background-color;
+    transition-duration: 0.2s;
+    transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+  }
+  .auth-blank::placeholder { color: #9a98ab; font-variation-settings: "wdth" 90, "wght" 400; }
+  .auth-blank:focus { outline: none; border-color: var(--color-signal); background: rgba(91, 47, 224, 0.08); }
+  .auth-blank-bad { border-color: var(--color-tally-text); }
+  .auth-sentence {
+    font-family: var(--font-axis);
+    font-variation-settings: "wdth" 90, "wght" 600;
+    font-size: clamp(26px, 3.4vw, 50px);
+    line-height: 1.5;
+    letter-spacing: -0.02em;
+    max-width: 1100px;
+  }
+  .auth-tog {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+    padding: 0 14px;
+    margin: 0 4px;
+    border-radius: 9999px;
+    border: 2px solid var(--color-ink);
+    background: transparent;
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0;
+    vertical-align: middle;
+    transition-property: scale, background-color, color;
+    transition-duration: 0.2s;
+    transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+  }
+  .auth-tog:hover { background: var(--color-ink); color: var(--color-paper); }
+  .auth-tog:active { scale: 0.96; }
+  .loud-letter {
+    display: inline-block;
+    transition-property: font-variation-settings;
+    transition-duration: 0.7s;
+    transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .auth-rise { animation: auth-rise 0.8s cubic-bezier(0.16, 1, 0.3, 1) both; }
+  @keyframes auth-rise { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
+  @keyframes auth-spin { to { transform: rotate(360deg); } }
+  @keyframes watch-scan { from { stroke-dashoffset: 1000; } to { stroke-dashoffset: 0; } }
+  @keyframes pass-stamp { from { opacity: 0; transform: rotate(12deg) scale(1.8); } to { opacity: 1; transform: rotate(12deg) scale(1); } }
+
+  /* The pass: strap, clip and card hang from the top edge of the page. */
+  .pass-hang {
+    transform-origin: 50% 0;
+    will-change: transform;
+    touch-action: none;
+    cursor: grab;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .pass-hang.is-grabbing { cursor: grabbing; }
+  .pass-strap {
+    width: 46px;
+    height: 190px;
+    margin-top: -4px;
+    background: var(--color-ink);
+    box-shadow: inset 5px 0 0 rgba(242, 243, 248, 0.12), inset -5px 0 0 rgba(255, 255, 255, 0.04);
+    color: var(--color-paper);
+    font-family: var(--font-axis);
+    font-variation-settings: "wdth" 100, "wght" 700;
+    font-size: 12px;
+    letter-spacing: 0.32em;
+    writing-mode: vertical-rl;
+    text-align: center;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .pass-clip {
+    width: 62px;
+    height: 38px;
+    border-radius: 8px 8px 14px 14px;
+    background: linear-gradient(90deg, #8d8aa0, #e6e4ef 45%, #8d8aa0);
+    box-shadow: 0 8px 14px -6px rgba(12, 10, 20, 0.5);
+  }
+  .pass-stage { perspective: 1400px; margin-top: -12px; }
+  .pass-card { position: relative; width: min(300px, 78vw); height: 430px; transition: transform 0.15s; }
+  .pass-hang.is-grabbing .pass-card { transform: scale(1.025); }
+  .pass-flip {
+    position: absolute;
+    inset: 0;
+    transform-style: preserve-3d;
+    transition-property: transform;
+    transition-duration: 0.9s;
+    transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .pass-flip.is-flipped { transform: rotateY(180deg); }
+  .pass-face {
+    position: absolute;
+    inset: 0;
+    border-radius: 24px;
+    padding: 22px 22px 18px;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+  .pass-front {
+    background: #fff;
+    color: var(--color-ink);
+    box-shadow: inset 0 0 0 2px var(--color-ink), 0 2px 4px rgba(12, 10, 20, 0.2), 0 44px 60px -32px rgba(12, 10, 20, 0.55);
+  }
+  .pass-back {
+    background: var(--color-ink);
+    color: var(--color-paper);
+    transform: rotateY(180deg);
+    box-shadow: 0 2px 4px rgba(12, 10, 20, 0.2), 0 44px 60px -32px rgba(12, 10, 20, 0.55);
+  }
+  .pass-slot {
+    width: 64px;
+    height: 12px;
+    border-radius: 6px;
+    margin: 0 auto 16px;
+    background: var(--color-ink);
+    box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.6);
+  }
+  .pass-back .pass-slot { background: var(--color-paper); }
+  .pass-avatar {
+    width: 112px;
+    height: 112px;
+    border-radius: 50%;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-axis);
+    font-variation-settings: "wdth" 110, "wght" 900;
+    font-size: 60px;
+    color: var(--color-ink);
+    box-shadow: inset 0 0 0 2px var(--color-ink);
+    transition: background-color 0.5s;
+  }
+  .pass-barcode {
+    height: 38px;
+    background: repeating-linear-gradient(90deg, var(--color-ink) 0 2px, transparent 2px 5px, var(--color-ink) 5px 6px, transparent 6px 11px, var(--color-ink) 11px 15px, transparent 15px 18px);
+  }
+  .pass-back .pass-barcode {
+    background: repeating-linear-gradient(90deg, var(--color-paper) 0 2px, transparent 2px 5px, var(--color-paper) 5px 6px, transparent 6px 11px, var(--color-paper) 11px 15px, transparent 15px 18px);
+  }
+  .pass-stamp {
+    position: absolute;
+    right: 16px;
+    top: 124px;
+    padding: 3px 10px;
+    border: 3px solid #0b7a55;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.9);
+    color: #0b7a55;
+    font-family: var(--font-axis);
+    font-variation-settings: "wdth" 100, "wght" 900;
+    font-size: 15px;
+    letter-spacing: 0.06em;
+    transform: rotate(12deg);
+    animation: pass-stamp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .pass-flipbtn {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    border: 0;
+    border-radius: 24px;
+    background: transparent;
+    cursor: inherit;
+  }
+  .pass-flipbtn:focus-visible { outline: 3px solid var(--color-signal); outline-offset: 6px; }
+  .pass-check {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 0;
+    border-bottom: 1px solid rgba(242, 243, 248, 0.18);
+    font-size: 15px;
+  }
+  .pass-check i {
+    flex: none;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    box-shadow: inset 0 0 0 2px rgba(242, 243, 248, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition-property: background-color, box-shadow;
+    transition-duration: 0.3s;
+  }
+  .pass-check.is-ok i { background: #34d399; box-shadow: none; color: #04281c; }
+}
