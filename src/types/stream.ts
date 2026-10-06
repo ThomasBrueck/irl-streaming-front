@@ -2,12 +2,12 @@ import type { StreamCategory } from "../lib/categories";
 
 export interface StreamResponse {
   id: number;
-  userID: number;
+  userId: number;
   title: string;
   description: string | null;
   category: StreamCategory | null;
   status: "OFFLINE" | "LIVE";
-  streamKey: string;
+  streamKey?: string;
   viewerCount: number;
   createdAt: string;
 }

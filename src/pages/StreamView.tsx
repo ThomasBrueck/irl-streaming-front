@@ -36,7 +36,7 @@ export default function StreamView() {
 
   const userId = user?.id;
   const username = user?.username || "anonymous";
-  const isOwner = stream && userId ? String(stream.userID) === userId : false;
+  const isOwner = stream && userId ? String(stream.userId) === userId : false;
   const live = stream?.status === "LIVE";
 
   // This route is keyed by :id (see StreamViewRoute in App.tsx), so a fresh
@@ -48,7 +48,7 @@ export default function StreamView() {
       .then(async (s) => {
         const [all, host] = await Promise.all([
           getStreams().catch(() => [] as StreamResponse[]),
-          String(s.userID) === userId ? Promise.resolve(null) : getUserById(s.userID).catch(() => null),
+          String(s.userId) === userId ? Promise.resolve(null) : getUserById(s.userId).catch(() => null),
         ]);
         if (cancelled) return;
         setStream(s);
@@ -176,7 +176,7 @@ export default function StreamView() {
   }
 
   const meta = categoryMeta(stream.category);
-  const host = isOwner ? username : hostName || `Channel ${stream.userID}`;
+  const host = isOwner ? username : hostName || `Channel ${stream.userId}`;
   const alsoOnAir = others
     .filter((s) => s.id !== stream.id && s.status === "LIVE")
     .sort((a, b) => b.viewerCount - a.viewerCount)
@@ -274,7 +274,7 @@ export default function StreamView() {
         </main>
 
         <aside className="auth-rise min-w-[min(100%,320px)] flex-[0_1_420px] [animation-delay:.14s] lg:sticky lg:top-4">
-          <Chat streamId={stream.id} userId={userId || "0"} username={username} />
+          <Chat streamId={stream.id} userId={userId || "0"} />
         </aside>
       </div>
 

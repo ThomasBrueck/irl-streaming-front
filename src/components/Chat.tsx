@@ -8,7 +8,6 @@ import Icon from "./ui/Icon";
 interface ChatProps {
   streamId: number;
   userId: string;
-  username: string;
 }
 
 const MAX_LENGTH = 300;
@@ -16,7 +15,7 @@ const QUICK_REACTIONS = ["🔥", "😂", "❤️", "👏", "🎉"];
 // Readable on white.
 const NAME_COLORS = ["#5b2fe0", "#c81e3a", "#0f766e", "#b45309", "#1d4ed8", "#9d174d"];
 
-export default function Chat({ streamId, userId, username }: ChatProps) {
+export default function Chat({ streamId, userId }: ChatProps) {
   const reduced = useReducedMotion();
   const [messages, setMessages] = useState<ChatMessageDto[]>([]);
   const [input, setInput] = useState("");
@@ -54,9 +53,11 @@ export default function Chat({ streamId, userId, username }: ChatProps) {
   }, [pinnedToBottom]);
 
   useEffect(() => {
+    const token = localStorage.getItem("token");
     const scheme = window.location.protocol === "https:" ? "wss" : "ws";
     const client = new Client({
       brokerURL: `${scheme}://${window.location.host}/ws/chat`,
+      connectHeaders: token ? { Authorization: `Bearer ${token}` } : {},
       reconnectDelay: 3000,
       onConnect: () => {
         setConnected(true);
@@ -107,13 +108,12 @@ export default function Chat({ streamId, userId, username }: ChatProps) {
 
   const publish = (content: string) => {
     if (!content.trim() || !clientRef.current?.connected) return;
-    const message: ChatMessageDto = {
-      streamId: String(streamId),
-      userId,
-      username,
-      content: content.trim().slice(0, MAX_LENGTH),
-    };
-    clientRef.current.publish({ destination: `/app/chat/${streamId}`, body: JSON.stringify(message) });
+    // Only send content — identity (userId, username) is resolved server-side
+    // from the JWT passed during the STOMP CONNECT handshake.
+    clientRef.current.publish({
+      destination: `/app/chat/${streamId}`,
+      body: JSON.stringify({ content: content.trim().slice(0, MAX_LENGTH) }),
+    });
   };
 
   const sendMessage = (e: React.FormEvent) => {
