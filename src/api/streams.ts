@@ -1,9 +1,14 @@
 import api from "../lib/axios";
 import type { StreamResponse, CreateStreamRequest, UpdateStreamRequest, LiveKitTokenResponse } from "../types/stream";
 
+interface Page<T> {
+  content: T[];
+  totalElements: number;
+}
+
 export async function getStreams(): Promise<StreamResponse[]> {
-  const res = await api.get<StreamResponse[]>("/api/streams");
-  return res.data;
+  const res = await api.get<Page<StreamResponse>>("/api/streams", { params: { page: 0, size: 100 } });
+  return res.data.content;
 }
 
 export async function getStreamById(id: number): Promise<StreamResponse> {
