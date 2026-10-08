@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Client, type IMessage } from "@stomp/stompjs";
 import { getChatHistory, type ChatMessageDto } from "../api/chat";
+import { getUserById } from "../api/users";
 import { hashString } from "../lib/identity";
 import { useReducedMotion } from "../hooks/useReducedMotion";
 import Icon from "./ui/Icon";
 
 interface ChatProps {
   streamId: number;
-  userId: string;
 }
 
 const MAX_LENGTH = 300;
@@ -15,7 +15,7 @@ const QUICK_REACTIONS = ["🔥", "😂", "❤️", "👏", "🎉"];
 // Readable on white.
 const NAME_COLORS = ["#5b2fe0", "#c81e3a", "#0f766e", "#b45309", "#1d4ed8", "#9d174d"];
 
-export default function Chat({ streamId, userId }: ChatProps) {
+export default function Chat({ streamId }: ChatProps) {
   const reduced = useReducedMotion();
   const [messages, setMessages] = useState<ChatMessageDto[]>([]);
   const [input, setInput] = useState("");
@@ -25,6 +25,9 @@ export default function Chat({ streamId, userId }: ChatProps) {
   const [newCount, setNewCount] = useState(0);
   const [showReactions, setShowReactions] = useState(false);
 
+  // Chat messages carry the login handle; the name people chose to show is looked up once per user.
+  const [shownNames, setShownNames] = useState<Record<string, string>>({});
+  const requestedNames = useRef(new Set<string>());
   const clientRef = useRef<Client | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   // Mirrors `pinnedToBottom` for the socket callback below, which is set up once
@@ -47,6 +50,18 @@ export default function Chat({ streamId, userId }: ChatProps) {
       cancelled = true;
     };
   }, [streamId]);
+
+  useEffect(() => {
+    for (const { userId } of messages) {
+      if (requestedNames.current.has(userId)) continue;
+      requestedNames.current.add(userId);
+      getUserById(userId)
+        .then((u) => setShownNames((prev) => ({ ...prev, [userId]: u.displayName || u.username })))
+        .catch(() => {
+          /* keep showing the handle */
+        });
+    }
+  }, [messages]);
 
   useEffect(() => {
     pinnedRef.current = pinnedToBottom;
@@ -153,20 +168,17 @@ export default function Chat({ streamId, userId }: ChatProps) {
             <p className="px-2.5 py-4 text-ink-soft">No messages yet. Say hello!</p>
           )}
 
-          {messages.map((msg, i) => {
-            const mine = msg.userId === userId;
-            return (
-              <p
-                key={`${msg.createdAt ?? ""}-${i}`}
-                className={`rounded-[14px] px-2.5 py-1.5 leading-[1.4] [overflow-wrap:anywhere] hover:bg-paper ${mine ? "bg-paper shadow-[inset_0_0_0_2px_#0c0a14]" : ""}`}
-              >
-                <b className="mr-1.5" style={{ color: mine ? "#0c0a14" : NAME_COLORS[hashString(msg.username) % NAME_COLORS.length] }}>
-                  {msg.username}
-                </b>
-                {msg.content}
-              </p>
-            );
-          })}
+          {messages.map((msg, i) => (
+            <p
+              key={`${msg.createdAt ?? ""}-${i}`}
+              className="rounded-[14px] px-2.5 py-1.5 leading-[1.4] [overflow-wrap:anywhere] hover:bg-paper"
+            >
+              <b className="mr-1.5" style={{ color: NAME_COLORS[hashString(msg.username) % NAME_COLORS.length] }}>
+                {shownNames[msg.userId] ?? msg.username}
+              </b>
+              {msg.content}
+            </p>
+          ))}
         </div>
 
         {!pinnedToBottom && newCount > 0 && (

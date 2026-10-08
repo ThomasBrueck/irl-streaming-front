@@ -274,7 +274,7 @@ export default function StreamView() {
         </main>
 
         <aside className="auth-rise mx-auto w-full max-w-[760px] [animation-delay:.14s] lg:sticky lg:top-4 lg:mx-0 lg:w-[420px] lg:max-w-none lg:flex-none">
-          <Chat streamId={stream.id} userId={userId || "0"} />
+          <Chat streamId={stream.id} />
         </aside>
       </div>
 
