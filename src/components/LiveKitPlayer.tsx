@@ -95,7 +95,7 @@ export default function LiveKitPlayer({ streamId, displayName, hostName, muted }
 
   return (
     <>
-      <video ref={videoRef} autoPlay playsInline className={`absolute inset-0 size-full bg-ink object-contain ${hasVideo ? "" : "invisible"}`} />
+      <video ref={videoRef} autoPlay playsInline className={`absolute inset-0 size-full bg-ink object-contain [transform:scaleX(-1)] ${hasVideo ? "" : "invisible"}`} />
       <audio ref={audioRef} autoPlay muted={muted} />
 
       {!connected && (
