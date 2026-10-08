@@ -142,8 +142,8 @@ export default function Dashboard() {
     <div className="landing min-h-screen overflow-x-clip">
       <DashboardHeader username={username} onLogout={logout} onAir={onAir} />
 
-      <div className="mx-auto flex max-w-[1440px] flex-wrap items-start gap-12 px-[clamp(20px,3vw,48px)] pb-[90px] pt-6">
-        <main className="min-w-0 flex-[1_1_640px]">
+      <div className="mx-auto flex max-w-[1440px] flex-col gap-12 px-[clamp(20px,3vw,48px)] pb-[90px] pt-6 lg:flex-row lg:items-start">
+        <main className="min-w-0 lg:flex-1">
           <h1 className="axis auth-rise mb-7 text-[clamp(64px,9vw,136px)] uppercase">Where to?</h1>
 
           <div className="auth-rise relative [animation-delay:.1s]">
@@ -251,7 +251,7 @@ export default function Dashboard() {
           )}
         </main>
 
-        <aside className="min-w-[min(100%,320px)] flex-[0_1_400px] lg:sticky lg:top-6">
+        <aside className="mx-auto w-full max-w-[560px] lg:sticky lg:top-6 lg:mx-0 lg:w-[400px] lg:max-w-none lg:flex-none">
           {!loading && (
             <ChannelPanel
               key={channel ? `${channel.id}-${channel.status}` : "new"}
