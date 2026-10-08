@@ -131,12 +131,12 @@ export default function StreamView() {
     return (
       <div className="landing min-h-screen">
         {header}
-        <div className="mx-auto flex max-w-[1520px] flex-wrap gap-10 px-[clamp(20px,3vw,48px)] pb-20 pt-4" aria-busy="true" aria-label="Loading stream">
-          <div className="min-w-0 flex-[1_1_640px]">
+        <div className="mx-auto flex max-w-[1520px] flex-col gap-10 px-[clamp(20px,3vw,48px)] pb-20 pt-4 lg:flex-row" aria-busy="true" aria-label="Loading stream">
+          <div className="min-w-0 lg:flex-1">
             <div className="aspect-video animate-shimmer rounded-[28px] bg-[linear-gradient(90deg,#e6e7f1_0,#f6f7fb_50%,#e6e7f1_100%)] bg-[length:200%_100%]" />
             <div className="mt-8 h-24 w-3/4 animate-shimmer rounded-3xl bg-[linear-gradient(90deg,#e6e7f1_0,#f6f7fb_50%,#e6e7f1_100%)] bg-[length:200%_100%]" />
           </div>
-          <div className="h-[560px] min-w-[min(100%,320px)] flex-[0_1_420px] animate-shimmer rounded-[28px] bg-[linear-gradient(90deg,#e6e7f1_0,#f6f7fb_50%,#e6e7f1_100%)] bg-[length:200%_100%]" />
+          <div className="mx-auto h-[560px] w-full max-w-[760px] animate-shimmer lg:mx-0 lg:w-[420px] lg:max-w-none lg:flex-none rounded-[28px] bg-[linear-gradient(90deg,#e6e7f1_0,#f6f7fb_50%,#e6e7f1_100%)] bg-[length:200%_100%]" />
         </div>
       </div>
     );
@@ -186,8 +186,8 @@ export default function StreamView() {
     <div className="landing min-h-screen overflow-x-clip">
       {header}
 
-      <div className="mx-auto flex max-w-[1520px] flex-wrap items-start gap-10 px-[clamp(20px,3vw,48px)] pb-[90px] pt-4">
-        <main className="min-w-0 flex-[1_1_640px]">
+      <div className="mx-auto flex max-w-[1520px] flex-col gap-10 px-[clamp(20px,3vw,48px)] pb-[90px] pt-4 lg:flex-row lg:items-start">
+        <main className="min-w-0 lg:flex-1">
           <div className="auth-rise">
             <StreamStage stream={stream} isOwner={isOwner} displayName={username} hostName={host} />
           </div>
@@ -273,7 +273,7 @@ export default function StreamView() {
           )}
         </main>
 
-        <aside className="auth-rise min-w-[min(100%,320px)] flex-[0_1_420px] [animation-delay:.14s] lg:sticky lg:top-4">
+        <aside className="auth-rise mx-auto w-full max-w-[760px] [animation-delay:.14s] lg:sticky lg:top-4 lg:mx-0 lg:w-[420px] lg:max-w-none lg:flex-none">
           <Chat streamId={stream.id} userId={userId || "0"} />
         </aside>
       </div>
