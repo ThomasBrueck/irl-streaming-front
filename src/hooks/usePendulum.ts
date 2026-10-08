@@ -7,9 +7,11 @@ interface Controller {
   consumeDrag: () => boolean;
 }
 
-const GRAVITY = 8.2; // stiffness of the pendulum (about a 2.2 s swing)
-const DAMPING = 1.15;
+const GRAVITY = 3.2; // stiffness of the pendulum (about a 3.5 s swing)
+const DAMPING = 1.5; // settles in roughly 7 s
 const MAX_ANGLE = 1.25; // radians the pass can be pulled to
+const THROW_MAX = 1.4; // fastest a released pass can swing (rad/s), keeps a throw from going over the top
+const HOVER_MAX = 0.9; // fastest a mouse brush can push it (rad/s)
 
 /** Makes an element hang from its top edge like a pendulum you can grab,
  * throw and poke. All per-frame work is one `transform` write on the hanging
@@ -26,7 +28,7 @@ export function usePendulum(reduced: boolean) {
     const anchor = anchorRef.current;
     if (!hang || !anchor) return;
 
-    const s = { th: reduced ? 0 : 0.6, om: 0, drag: false, press: false, dragged: false, raf: 0, vel: 0, tl: 0, sx: 0, sy: 0, prevT: 0 };
+    const s = { th: reduced ? 0 : 0.22, om: 0, drag: false, press: false, dragged: false, raf: 0, vel: 0, tl: 0, sx: 0, sy: 0, prevT: 0 };
 
     const apply = () => {
       hang.style.transform = `rotate(${s.th.toFixed(4)}rad)`;
@@ -86,7 +88,7 @@ export function usePendulum(reduced: boolean) {
       s.drag = false;
       hang.classList.remove("is-grabbing");
       if (wasDragging) {
-        s.om = Math.max(-14, Math.min(14, s.vel));
+        s.om = Math.max(-THROW_MAX, Math.min(THROW_MAX, s.vel));
         kick();
       }
     };
@@ -107,7 +109,7 @@ export function usePendulum(reduced: boolean) {
       // Moving the mouse across the pass gives it a small push.
       move: (e) => {
         if (s.drag || s.press || reduced || e.pointerType !== "mouse") return;
-        s.om = Math.max(-3.5, Math.min(3.5, s.om - e.movementX * 0.012));
+        s.om = Math.max(-HOVER_MAX, Math.min(HOVER_MAX, s.om - e.movementX * 0.004));
         if (Math.abs(e.movementX) > 1) kick();
       },
       impulse: (amount) => {

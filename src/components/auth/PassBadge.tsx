@@ -30,7 +30,7 @@ export default function PassBadge({ name, handle, stamp, checks, progress }: Pas
   const previous = useRef(progress);
 
   useEffect(() => {
-    if (progress > previous.current) impulse((progress >= 10 ? 4.2 : 1.8) * (Math.random() < 0.5 ? -1 : 1));
+    if (progress > previous.current) impulse((progress >= 10 ? 0.8 : 0.32) * (Math.random() < 0.5 ? -1 : 1));
     previous.current = progress;
   }, [progress, impulse]);
 
@@ -40,7 +40,7 @@ export default function PassBadge({ name, handle, stamp, checks, progress }: Pas
   const onKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
     if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
       e.preventDefault();
-      impulse((e.key === "ArrowRight" ? -1 : 1) * 3);
+      impulse((e.key === "ArrowRight" ? -1 : 1) * 0.9);
     }
   };
 
