@@ -57,9 +57,14 @@ export default function Register() {
       // Let the pass celebrate for a moment before sending them to log in.
       redirectTimer.current = window.setTimeout(() => navigate("/login"), 1400);
     } catch (err) {
+      const res = (err as { response?: { status?: number; data?: { message?: string } } })?.response;
       const message =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-        "That email or username is already taken.";
+        res?.data?.message ||
+        (res?.status === 400
+          ? "Some details don't look right. Check each field and try again."
+          : !res?.status || res.status >= 500
+            ? "We can't reach the server right now. Give it a moment and try again."
+            : "Something went wrong. Please try again.");
       setFormError(message);
     }
   };

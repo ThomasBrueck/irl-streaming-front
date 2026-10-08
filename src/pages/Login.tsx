@@ -35,8 +35,13 @@ export default function Login() {
       await login(values);
       toast.show("Welcome back!", "success");
       navigate("/dashboard");
-    } catch {
-      setFormError("That email or password doesn't match.");
+    } catch (err) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      setFormError(
+        status !== undefined && status < 500
+          ? "That email or password doesn't match."
+          : "We can't reach the server right now. Give it a moment and try again."
+      );
     }
   };
 
