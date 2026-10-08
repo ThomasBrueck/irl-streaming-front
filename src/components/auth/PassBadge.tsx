@@ -45,8 +45,11 @@ export default function PassBadge({ name, handle, stamp, checks, progress }: Pas
   };
 
   return (
-    <div className="relative min-h-[720px] min-w-[min(100%,320px)] flex-[0_1_400px]">
-      <div className="absolute left-1/2 top-0 w-[min(320px,80vw)] -translate-x-1/2">
+    <div className="relative flex flex-none flex-col items-center max-[899px]:mt-4 max-[899px]:overflow-hidden min-[900px]:min-h-[720px] min-[900px]:w-[clamp(340px,34vw,440px)]">
+      {/* Below 900px the pass hangs under the form, so it gets its own rail and mount to hang from. */}
+      <i aria-hidden="true" className="absolute inset-x-[clamp(20px,4vw,56px)] top-0 z-10 h-0.5 rounded-full bg-ink min-[900px]:hidden" />
+      <i aria-hidden="true" className="absolute left-1/2 top-0 z-10 h-3 w-[72px] -translate-x-1/2 rounded-b-[10px] bg-ink min-[900px]:hidden" />
+      <div className="relative w-[min(320px,80vw)]">
         <i ref={anchorRef} aria-hidden="true" className="absolute left-1/2 top-0 size-0" />
         <div
           ref={hangRef}
@@ -110,7 +113,7 @@ export default function PassBadge({ name, handle, stamp, checks, progress }: Pas
           </div>
         </div>
       </div>
-      <p id="pass-hint" className="absolute inset-x-0 bottom-6 m-0 text-center text-[15px] text-ink-soft">
+      <p id="pass-hint" className="m-0 mt-auto px-4 pb-8 pt-6 text-center text-[15px] text-ink-soft">
         Drag it, swing it, tap to flip.
       </p>
     </div>
